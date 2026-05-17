@@ -1,0 +1,208 @@
+.item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border-bottom: 3px solid var(--ifm-color-emphasis-200);
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.question {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+  line-height: 1.6;
+  color: var(--ifm-font-color-base);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  text-align: left;
+}
+
+.option:hover:not(:disabled) {
+  border-color: var(--ifm-color-primary);
+  background: var(--ifm-color-primary-lightest);
+}
+
+.option.selected {
+  border-color: var(--ifm-color-primary);
+  background: var(--ifm-color-primary-light);
+  color: var(--ifm-color-primary-darkest);
+}
+
+.option.correct {
+  border-color: var(--ifm-color-success);
+  background: var(--ifm-color-success-light);
+  color: var(--ifm-color-success-darkest);
+}
+
+.option.incorrect {
+  border-color: var(--ifm-color-danger);
+  background: var(--ifm-color-danger-light);
+  color: var(--ifm-color-danger-darkest);
+}
+
+.option.missed {
+  border-color: var(--ifm-color-success);
+  background: var(--ifm-color-success-lightest);
+  color: var(--ifm-color-success-dark);
+}
+
+.optionLabel {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.4em;
+  border-radius: 14px;
+  background: var(--ifm-color-emphasis-200);
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.option.correct .optionLabel {
+  background: var(--ifm-color-success);
+  color: white;
+}
+
+.option.incorrect .optionLabel {
+  background: var(--ifm-color-danger);
+  color: white;
+}
+
+.optionText {
+  flex: 1;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.jiexi {
+  margin-top: 1.2rem;
+  padding: 1rem;
+  background: var(--ifm-color-info-lightest);
+  border-left: 4px solid var(--ifm-color-info);
+  border-radius: 0 var(--ifm-card-border-radius) var(--ifm-card-border-radius) 0;
+}
+
+.jiexiTitle {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-info-dark);
+}
+
+.jiexiContent {
+  line-height: 1.6;
+  color: black;
+}
+
+.fillArea {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.textarea {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 0 0 2px var(--ifm-color-primary-lightest);
+}
+
+.submitBtn {
+  align-self: flex-end;
+  padding: 0.5rem 1.5rem;
+  border: none;
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--ifm-color-primary);
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.25s ease, visibility 0.25s ease, background 0.2s;
+  margin-top: 0.8rem;
+}
+
+.submitBtn:hover {
+  background: var(--ifm-color-primary-dark);
+}
+
+.submitBtn.hiddenBtn {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.textarea:read-only {
+  background: var(--ifm-color-emphasis-200);
+  cursor: default;
+  opacity: 0.7;
+  caret-color: transparent;
+}
+
+.resetBtn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.3rem 0.8rem;
+  border: none;
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--ifm-color-danger);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+
+.resetBtn:hover {
+  background: var(--ifm-color-danger-dark);
+}
+
+.redoCount {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-600);
+  background: var(--ifm-color-emphasis-100);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--ifm-card-border-radius);
+  z-index: 1;
+}

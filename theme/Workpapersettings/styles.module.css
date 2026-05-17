@@ -1,0 +1,33 @@
+.settingsCard {
+  padding: 1rem 1.5rem;
+  border-bottom: 3px solid var(--ifm-color-emphasis-200);
+  display: inline-block;
+}
+
+.settingsTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.8rem;
+  color: var(--ifm-color-primary);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  color: var(--ifm-font-color-base);
+}
+
+.checkboxLabel input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ifm-color-primary);
+}
+
+.checkboxLabel input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
