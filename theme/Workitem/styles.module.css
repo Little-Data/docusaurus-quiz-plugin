@@ -1,5 +1,4 @@
 .item {
-  position: relative;
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
@@ -156,7 +155,6 @@
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.25s ease, visibility 0.25s ease, background 0.2s;
-  margin-top: 0.8rem;
 }
 
 .submitBtn:hover {
@@ -175,10 +173,27 @@
   caret-color: transparent;
 }
 
+.submitRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.submitRow .submitBtn {
+  margin-top: 0;
+}
+
 .resetBtn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
   padding: 0.3rem 0.8rem;
   border: none;
   border-radius: var(--ifm-card-border-radius);
@@ -188,7 +203,6 @@
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.2s ease;
-  z-index: 1;
 }
 
 .resetBtn:hover {
@@ -196,13 +210,14 @@
 }
 
 .redoCount {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+  margin-right: auto;
   font-size: 0.85rem;
   color: var(--ifm-color-emphasis-600);
   background: var(--ifm-color-emphasis-100);
   padding: 0.2rem 0.6rem;
   border-radius: var(--ifm-card-border-radius);
-  z-index: 1;
+}
+
+.submitRow .redoCount {
+  margin-right: auto;
 }

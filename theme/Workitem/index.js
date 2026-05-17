@@ -64,12 +64,10 @@ function SelectionQuestion({ question, options, jiexi }) {
     [options]
   );
 
-  // 用户交互状态
   const [userSelected, setUserSelected] = useState(isMultiple ? new Set() : null);
   const [userLocked, setUserLocked] = useState(false);
   const [redoCount, setRedoCount] = useState(0);
 
-  // 当 showAnsDirectly 或 showJiexiDirectly 变化时，重置用户状态（除非 showAnsDirectly 开启）
   useLayoutEffect(() => {
     if (showAnsDirectly) {
       setUserSelected(isMultiple ? new Set(correctAnswers) : correctAnswers[0]);
@@ -81,7 +79,6 @@ function SelectionQuestion({ question, options, jiexi }) {
     }
   }, [showAnsDirectly, showJiexiDirectly, isMultiple, correctAnswers]);
 
-  // 计算实际状态
   const locked = showAnsDirectly || userLocked;
   const selected = showAnsDirectly ? (isMultiple ? new Set(correctAnswers) : correctAnswers[0]) : userSelected;
   const showJiexi = showAnsDirectly || showJiexiDirectly || userLocked;
@@ -166,23 +163,28 @@ function SelectionQuestion({ question, options, jiexi }) {
       </div>
 
       {isMultiple && !locked && (
-        <button
-          className={`${styles.submitBtn} ${!hasSelection ? styles.hiddenBtn : ''}`}
-          onClick={handleSubmit}
-          disabled={!hasSelection}
-        >
-          确定
-        </button>
+        <div className={styles.submitRow}>
+          {redoCount > 0 && <span className={styles.redoCount}>重做次数: {redoCount}</span>}
+          <button
+            className={`${styles.submitBtn} ${!hasSelection ? styles.hiddenBtn : ''}`}
+            onClick={handleSubmit}
+            disabled={!hasSelection}
+          >
+            确定
+          </button>
+        </div>
       )}
 
-      {showReset && (
-        <button className={styles.resetBtn} onClick={handleReset}>
-          重置
-        </button>
-      )}
-      {!locked && redoCount > 0 && (
-        <span className={styles.redoCount}>重做次数: {redoCount}</span>
-      )}
+      <div className={styles.actionBar}>
+        {showReset && (
+          <button className={styles.resetBtn} onClick={handleReset}>
+            重置
+          </button>
+        )}
+        {!isMultiple && !locked && redoCount > 0 && !showAnsDirectly && (
+          <span className={styles.redoCount}>重做次数: {redoCount}</span>
+        )}
+      </div>
 
       {showJiexi && jiexi && (
         <div className={styles.jiexi}>
@@ -240,26 +242,29 @@ function FillQuestion({ question, hasAnsinput, jiexi }) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
           />
-          {!locked && (
-            <button
-              className={`${styles.submitBtn} ${!hasContent ? styles.hiddenBtn : ''}`}
-              onClick={handleSubmit}
-              disabled={!hasContent}
-            >
-              确定
-            </button>
-          )}
         </div>
       )}
 
-      {showReset && (
-        <button className={styles.resetBtn} onClick={handleReset}>
-          重置
-        </button>
+      {!locked && hasAnsinput && !showAnsDirectly && (
+        <div className={styles.submitRow}>
+          {redoCount > 0 && <span className={styles.redoCount}>重做次数: {redoCount}</span>}
+          <button
+            className={`${styles.submitBtn} ${!hasContent ? styles.hiddenBtn : ''}`}
+            onClick={handleSubmit}
+            disabled={!hasContent}
+          >
+            确定
+          </button>
+        </div>
       )}
-      {!locked && redoCount > 0 && (
-        <span className={styles.redoCount}>重做次数: {redoCount}</span>
-      )}
+
+      <div className={styles.actionBar}>
+        {showReset && (
+          <button className={styles.resetBtn} onClick={handleReset}>
+            重置
+          </button>
+        )}
+      </div>
 
       {showJiexi && jiexi && (
         <div className={styles.jiexi}>
