@@ -1,3 +1,4 @@
+import OriginalMDXComponents from '@theme-init/MDXComponents';
 import Workpaper from '@theme/Workpaper';
 import Workitem from '@theme/Workitem';
 import Wenben from '@theme/Wenben';
@@ -6,7 +7,8 @@ import Jiexi from '@theme/Jiexi';
 import Ansinput from '@theme/Ansinput';
 import Workpapersettings from '@theme/Workpapersettings';
 
-export default {
+const MergedComponents = {
+  ...OriginalMDXComponents,
   Workpaper,
   Workitem,
   Wenben,
@@ -15,3 +17,5 @@ export default {
   Ansinput,
   Workpapersettings,
 };
+
+export default MergedComponents;
