@@ -1,10 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Workpapersettings from '@theme/Workpapersettings';
 import { QuizContext } from '../QuizContext';
 import styles from './styles.module.css';
 
 export default function Workpaper({ children }) {
-  // 从 children 中提取 Workpapersettings 的初始属性
   const settingsElement = useMemo(() => {
     const childrenArr = React.Children.toArray(children);
     return childrenArr.find(child => child.type === Workpapersettings);
@@ -19,6 +18,7 @@ export default function Workpaper({ children }) {
 
   const [showAnsDirectly, setShowAnsDirectly] = useState(initialShowAns);
   const [showJiexiDirectlyUser, setShowJiexiDirectlyUser] = useState(initialShowJiexi);
+  const [forceExpandAllState, setForceExpandAllState] = useState(null);
 
   const showJiexiDirectly = showAnsDirectly || showJiexiDirectlyUser;
 
@@ -30,12 +30,25 @@ export default function Workpaper({ children }) {
     setShowJiexiDirectlyUser(prev => !prev);
   }, []);
 
+  // 首次点击强制收起
+  const toggleForceExpandAll = useCallback(() => {
+    setForceExpandAllState(prev => {
+      if (prev === null) return false;
+      return !prev;
+    });
+  }, []);
+
   const contextValue = useMemo(
-    () => ({ showAnsDirectly, showJiexiDirectly }),
-    [showAnsDirectly, showJiexiDirectly]
+    () => ({
+      showAnsDirectly,
+      showJiexiDirectly,
+      forceExpandAllState,
+      setForceExpandAllState,
+      toggleForceExpandAll,
+    }),
+    [showAnsDirectly, showJiexiDirectly, forceExpandAllState, toggleForceExpandAll]
   );
 
-  // 重新渲染 children，将 Workpapersettings 替换为注入状态和回调的版本
   const renderedChildren = useMemo(() => {
     const childrenArr = React.Children.toArray(children);
     return childrenArr.map(child => {
@@ -46,11 +59,12 @@ export default function Workpaper({ children }) {
           showJiexiDirectly,
           onAnsChange: handleAnsChange,
           onJiexiChange: handleJiexiChange,
+          toggleForceExpandAll,
         });
       }
       return child;
     });
-  }, [children, showAnsDirectly, showJiexiDirectlyUser, showJiexiDirectly, handleAnsChange, handleJiexiChange]);
+  }, [children, showAnsDirectly, showJiexiDirectlyUser, showJiexiDirectly, handleAnsChange, handleJiexiChange, toggleForceExpandAll]);
 
   return (
     <QuizContext.Provider value={contextValue}>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useContext, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useCallback, useContext, useLayoutEffect, useReducer, useRef } from 'react';
 import Wenben from '@theme/Wenben';
 import Xuanxiang from '@theme/Xuanxiang';
 import Jiexi from '@theme/Jiexi';
@@ -6,114 +6,139 @@ import Ansinput from '@theme/Ansinput';
 import { QuizContext } from '../QuizContext';
 import styles from './styles.module.css';
 
-export default function Workitem({ children, xuanze, tiankong, ...rest }) {
-  const { wenbenContent, options, jiexiContent, hasAnsinput } = useMemo(() => {
-    const items = React.Children.toArray(children);
-    const wenben = items.find(child => child.type === Wenben);
-    const opts = items.filter(child => child.type === Xuanxiang);
-    const jiexi = items.find(child => child.type === Jiexi);
-    const ansinput = items.find(child => child.type === Ansinput);
+// 解析区域组件（带动画）
+function JiexiSection({ jiexiContent, initialCollapsed, forceExpandAllState }) {
+  const [isExpanded, setIsExpanded] = useState(!initialCollapsed);
+  const [height, setHeight] = useState(0);
+  const contentRef = useRef(null);
 
-    return {
-      wenbenContent: wenben ? wenben.props.children : '',
-      options: opts.map(opt => ({
-        text: opt.props.children,
-        isAnswer: opt.props.ans !== undefined,
-        label: opt.props.label || null,
-      })),
-      jiexiContent: jiexi ? jiexi.props.children : null,
-      hasAnsinput: !!ansinput,
-    };
-  }, [children]);
+  useLayoutEffect(() => {
+    if (forceExpandAllState !== null) {
+      setIsExpanded(forceExpandAllState);
+    }
+  }, [forceExpandAllState]);
 
-  const isSelection = xuanze !== undefined;
-  const isFill = tiankong !== undefined;
+  // 当内容或展开状态变化时，重新计算高度
+  useLayoutEffect(() => {
+    if (contentRef.current) {
+      setHeight(contentRef.current.scrollHeight);
+    }
+  }, [jiexiContent, isExpanded]);
 
-  if (isSelection) {
-    return (
-      <SelectionQuestion
-        question={wenbenContent}
-        options={options}
-        jiexi={jiexiContent}
-      />
-    );
-  }
+  const handleTitleClick = () => {
+    setIsExpanded(prev => !prev);
+  };
 
-  if (isFill) {
-    return (
-      <FillQuestion
-        question={wenbenContent}
-        hasAnsinput={hasAnsinput}
-        jiexi={jiexiContent}
-      />
-    );
-  }
+  if (!jiexiContent) return null;
 
   return (
-    <div className={styles.item}>
-      <div className={styles.question}>{wenbenContent}</div>
+    <div className={styles.jiexi}>
+      <div className={styles.jiexiTitle} onClick={handleTitleClick}>
+        <span className={`${styles.jiexiToggle} ${isExpanded ? styles.expanded : ''}`}>
+          ▶
+        </span>
+        解析
+      </div>
+      <div
+        className={styles.jiexiContentWrapper}
+        style={{ maxHeight: isExpanded ? `${height}px` : '0' }}
+      >
+        <div className={styles.jiexiContent} ref={contentRef}>
+          {jiexiContent}
+        </div>
+      </div>
     </div>
   );
 }
 
-function SelectionQuestion({ question, options, jiexi }) {
-  const { showAnsDirectly, showJiexiDirectly } = useContext(QuizContext);
+// 选择题状态 reducer
+function selectionReducer(state, action) {
+  switch (action.type) {
+    case 'SELECT_SINGLE':
+      return { ...state, userSelected: action.payload, userLocked: true, redoCount: state.redoCount };
+    case 'SELECT_MULTIPLE': {
+      const newSelected = typeof action.payload === 'function'
+        ? action.payload(state.userSelected)
+        : action.payload;
+      return { ...state, userSelected: newSelected, userLocked: false, redoCount: state.redoCount };
+    }
+    case 'SUBMIT':
+      return { ...state, userLocked: true };
+    case 'RESET':
+      return { userSelected: action.payload.initialSelected, userLocked: false, redoCount: state.redoCount + 1 };
+    case 'FORCE_SHOW_ANS':
+      return { userSelected: action.payload.selected, userLocked: true, redoCount: 0 };
+    case 'CLEAR_FORCE':
+      return { userSelected: action.payload.initialSelected, userLocked: false, redoCount: 0 };
+    default:
+      return state;
+  }
+}
+
+function SelectionQuestion({ question, options, jiexiContent, jiexiShouqi }) {
+  const { showAnsDirectly, showJiexiDirectly, forceExpandAllState } = useContext(QuizContext);
   const isMultiple = options.filter(o => o.isAnswer).length > 1;
   const correctAnswers = useMemo(
     () => options.map((o, idx) => (o.isAnswer ? idx : -1)).filter(i => i !== -1),
     [options]
   );
 
-  const [userSelected, setUserSelected] = useState(isMultiple ? new Set() : null);
-  const [userLocked, setUserLocked] = useState(false);
-  const [redoCount, setRedoCount] = useState(0);
+  const initialSelected = useMemo(() => {
+    return isMultiple ? new Set() : null;
+  }, [isMultiple]);
 
+  const [state, dispatch] = useReducer(selectionReducer, {
+    userSelected: initialSelected,
+    userLocked: false,
+    redoCount: 0,
+  });
+
+  // 使用 useLayoutEffect 同步更新，避免闪烁
   useLayoutEffect(() => {
     if (showAnsDirectly) {
-      setUserSelected(isMultiple ? new Set(correctAnswers) : correctAnswers[0]);
-      setUserLocked(true);
+      const forcedSelected = isMultiple ? new Set(correctAnswers) : correctAnswers[0];
+      dispatch({ type: 'FORCE_SHOW_ANS', payload: { selected: forcedSelected } });
     } else {
-      setUserSelected(isMultiple ? new Set() : null);
-      setUserLocked(false);
-      setRedoCount(0);
+      dispatch({ type: 'CLEAR_FORCE', payload: { initialSelected } });
     }
-  }, [showAnsDirectly, showJiexiDirectly, isMultiple, correctAnswers]);
+  }, [showAnsDirectly, isMultiple, correctAnswers, initialSelected]);
 
-  const locked = showAnsDirectly || userLocked;
-  const selected = showAnsDirectly ? (isMultiple ? new Set(correctAnswers) : correctAnswers[0]) : userSelected;
-  const showJiexi = showAnsDirectly || showJiexiDirectly || userLocked;
+  const locked = showAnsDirectly || state.userLocked;
+  const selected = showAnsDirectly
+    ? (isMultiple ? new Set(correctAnswers) : correctAnswers[0])
+    : state.userSelected;
+  const showJiexi = showAnsDirectly || showJiexiDirectly || state.userLocked;
 
-  const handleSingleClick = useCallback(
-    (idx) => {
-      if (locked) return;
-      setUserSelected(idx);
-      setUserLocked(true);
-    },
-    [locked]
-  );
+  const initialCollapsed = useMemo(() => {
+    if (jiexiShouqi !== undefined) return jiexiShouqi;
+    return false;
+  }, [jiexiShouqi]);
 
-  const handleMultipleClick = useCallback(
-    (idx) => {
-      if (locked) return;
-      setUserSelected(prev => {
+  const handleSingleClick = useCallback((idx) => {
+    if (locked) return;
+    dispatch({ type: 'SELECT_SINGLE', payload: idx });
+  }, [locked]);
+
+  const handleMultipleClick = useCallback((idx) => {
+    if (locked) return;
+    dispatch({
+      type: 'SELECT_MULTIPLE',
+      payload: (prev) => {
         const newSet = new Set(prev);
         if (newSet.has(idx)) newSet.delete(idx);
         else newSet.add(idx);
         return newSet;
-      });
-    },
-    [locked]
-  );
+      },
+    });
+  }, [locked]);
 
   const handleSubmit = useCallback(() => {
-    setUserLocked(true);
+    dispatch({ type: 'SUBMIT' });
   }, []);
 
   const handleReset = useCallback(() => {
-    setUserSelected(isMultiple ? new Set() : null);
-    setUserLocked(false);
-    setRedoCount(prev => prev + 1);
-  }, [isMultiple]);
+    dispatch({ type: 'RESET', payload: { initialSelected } });
+  }, [initialSelected]);
 
   const isCorrect = (idx) => {
     if (!locked) return null;
@@ -126,7 +151,7 @@ function SelectionQuestion({ question, options, jiexi }) {
   };
 
   const hasSelection = isMultiple ? selected.size > 0 : selected !== null;
-  const showReset = !showAnsDirectly && locked;
+  const showReset = !showAnsDirectly && state.userLocked;
 
   return (
     <div className={styles.item}>
@@ -164,7 +189,7 @@ function SelectionQuestion({ question, options, jiexi }) {
 
       {isMultiple && !locked && (
         <div className={styles.submitRow}>
-          {redoCount > 0 && <span className={styles.redoCount}>重做次数: {redoCount}</span>}
+          {state.redoCount > 0 && <span className={styles.redoCount}>重做次数: {state.redoCount}</span>}
           <button
             className={`${styles.submitBtn} ${!hasSelection ? styles.hiddenBtn : ''}`}
             onClick={handleSubmit}
@@ -181,53 +206,80 @@ function SelectionQuestion({ question, options, jiexi }) {
             重置
           </button>
         )}
-        {!isMultiple && !locked && redoCount > 0 && !showAnsDirectly && (
-          <span className={styles.redoCount}>重做次数: {redoCount}</span>
+        {!isMultiple && !locked && state.redoCount > 0 && !showAnsDirectly && (
+          <span className={styles.redoCount}>重做次数: {state.redoCount}</span>
         )}
       </div>
 
-      {showJiexi && jiexi && (
-        <div className={styles.jiexi}>
-          <div className={styles.jiexiTitle}>解析</div>
-          <div className={styles.jiexiContent}>{jiexi}</div>
-        </div>
+      {showJiexi && jiexiContent && (
+        <JiexiSection
+          jiexiContent={jiexiContent}
+          initialCollapsed={initialCollapsed}
+          forceExpandAllState={forceExpandAllState}
+        />
       )}
     </div>
   );
 }
 
-function FillQuestion({ question, hasAnsinput, jiexi }) {
-  const { showAnsDirectly, showJiexiDirectly } = useContext(QuizContext);
+// 填空题状态 reducer
+function fillReducer(state, action) {
+  switch (action.type) {
+    case 'SET_INPUT':
+      return { ...state, inputValue: action.payload };
+    case 'SUBMIT':
+      return { ...state, userLocked: true };
+    case 'RESET':
+      return { userLocked: false, inputValue: '', redoCount: state.redoCount + 1 };
+    case 'FORCE_SHOW_ANS':
+      return { userLocked: true, inputValue: state.inputValue, redoCount: 0 };
+    case 'CLEAR_FORCE':
+      return { userLocked: false, inputValue: '', redoCount: 0 };
+    default:
+      return state;
+  }
+}
 
-  const [userLocked, setUserLocked] = useState(false);
-  const [redoCount, setRedoCount] = useState(0);
-  const [inputValue, setInputValue] = useState('');
+function FillQuestion({ question, hasAnsinput, jiexiContent, jiexiShouqi }) {
+  const { showAnsDirectly, showJiexiDirectly, forceExpandAllState } = useContext(QuizContext);
+  const [state, dispatch] = useReducer(fillReducer, {
+    userLocked: false,
+    inputValue: '',
+    redoCount: 0,
+  });
 
   useLayoutEffect(() => {
     if (showAnsDirectly) {
-      setUserLocked(true);
+      dispatch({ type: 'FORCE_SHOW_ANS' });
     } else {
-      setUserLocked(false);
-      setRedoCount(0);
-      setInputValue('');
+      dispatch({ type: 'CLEAR_FORCE' });
     }
   }, [showAnsDirectly]);
 
-  const locked = showAnsDirectly || userLocked;
-  const showJiexi = showAnsDirectly || showJiexiDirectly || userLocked;
+  const locked = showAnsDirectly || state.userLocked;
+  const showJiexi = showAnsDirectly || showJiexiDirectly || state.userLocked;
+
+  const initialCollapsed = useMemo(() => {
+    if (jiexiShouqi !== undefined) return jiexiShouqi;
+    return false;
+  }, [jiexiShouqi]);
+
+  const handleInputChange = useCallback((e) => {
+    if (locked) return;
+    dispatch({ type: 'SET_INPUT', payload: e.target.value });
+  }, [locked]);
 
   const handleSubmit = useCallback(() => {
-    setUserLocked(true);
-  }, []);
+    if (state.inputValue.trim().length === 0) return;
+    dispatch({ type: 'SUBMIT' });
+  }, [state.inputValue]);
 
   const handleReset = useCallback(() => {
-    setUserLocked(false);
-    setRedoCount(prev => prev + 1);
-    setInputValue('');
+    dispatch({ type: 'RESET' });
   }, []);
 
-  const showReset = !showAnsDirectly && locked;
-  const hasContent = inputValue.trim().length > 0;
+  const showReset = !showAnsDirectly && state.userLocked;
+  const hasContent = state.inputValue.trim().length > 0;
 
   return (
     <div className={styles.item}>
@@ -239,15 +291,15 @@ function FillQuestion({ question, hasAnsinput, jiexi }) {
             rows={4}
             placeholder="请输入你的答案..."
             readOnly={locked}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            value={state.inputValue}
+            onChange={handleInputChange}
           />
         </div>
       )}
 
       {!locked && hasAnsinput && !showAnsDirectly && (
         <div className={styles.submitRow}>
-          {redoCount > 0 && <span className={styles.redoCount}>重做次数: {redoCount}</span>}
+          {state.redoCount > 0 && <span className={styles.redoCount}>重做次数: {state.redoCount}</span>}
           <button
             className={`${styles.submitBtn} ${!hasContent ? styles.hiddenBtn : ''}`}
             onClick={handleSubmit}
@@ -266,12 +318,66 @@ function FillQuestion({ question, hasAnsinput, jiexi }) {
         )}
       </div>
 
-      {showJiexi && jiexi && (
-        <div className={styles.jiexi}>
-          <div className={styles.jiexiTitle}>解析</div>
-          <div className={styles.jiexiContent}>{jiexi}</div>
-        </div>
+      {showJiexi && jiexiContent && (
+        <JiexiSection
+          jiexiContent={jiexiContent}
+          initialCollapsed={initialCollapsed}
+          forceExpandAllState={forceExpandAllState}
+        />
       )}
+    </div>
+  );
+}
+
+export default function Workitem({ children, xuanze, tiankong, ...rest }) {
+  const { wenbenContent, options, jiexiContent, jiexiShouqi, hasAnsinput } = useMemo(() => {
+    const items = React.Children.toArray(children);
+    const wenben = items.find(child => child.type === Wenben);
+    const opts = items.filter(child => child.type === Xuanxiang);
+    const jiexi = items.find(child => child.type === Jiexi);
+    const ansinput = items.find(child => child.type === Ansinput);
+
+    return {
+      wenbenContent: wenben ? wenben.props.children : '',
+      options: opts.map(opt => ({
+        text: opt.props.children,
+        isAnswer: opt.props.ans !== undefined,
+        label: opt.props.label || null,
+      })),
+      jiexiContent: jiexi ? jiexi.props.children : null,
+      jiexiShouqi: jiexi ? jiexi.props.shouqi === 'true' || jiexi.props.shouqi === true : undefined,
+      hasAnsinput: !!ansinput,
+    };
+  }, [children]);
+
+  const isSelection = xuanze !== undefined;
+  const isFill = tiankong !== undefined;
+
+  if (isSelection) {
+    return (
+      <SelectionQuestion
+        question={wenbenContent}
+        options={options}
+        jiexiContent={jiexiContent}
+        jiexiShouqi={jiexiShouqi}
+      />
+    );
+  }
+
+  if (isFill) {
+    return (
+      <FillQuestion
+        question={wenbenContent}
+        hasAnsinput={hasAnsinput}
+        jiexiContent={jiexiContent}
+        jiexiShouqi={jiexiShouqi}
+      />
+    );
+  }
+
+  return (
+    <div className={styles.item}>
+      <div className={styles.question}>{wenbenContent}</div>
     </div>
   );
 }

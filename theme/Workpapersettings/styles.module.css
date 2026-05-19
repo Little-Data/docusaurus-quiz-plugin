@@ -31,3 +31,27 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.controlRow {
+  margin-top: 0.8rem;
+}
+
+.toggleAllBtn {
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--ifm-color-primary);
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--ifm-background-color);
+  color: var(--ifm-color-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+}
+
+.toggleAllBtn:hover:not(:disabled) {
+  background: var(--ifm-color-primary-lightest);
+}
+
+.toggleAllBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

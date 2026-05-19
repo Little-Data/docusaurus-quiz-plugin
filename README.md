@@ -52,12 +52,12 @@ plugins: [
     <Xuanxiang ans>useEffect</Xuanxiang>
     <Xuanxiang>useSelector</Xuanxiang>
     <Xuanxiang ans>useContext</Xuanxiang>
-    <Jiexi>useState、useEffect、useContext 都是内置 Hooks，useSelector 来自 Redux。</Jiexi>
+    <Jiexi shouqi>useState、useEffect、useContext 都是内置 Hooks，useSelector 来自 Redux。</Jiexi>
   </Workitem>
 </Workpaper>
 ```
 
-`label`是控制选择的序号，默认A,B,C,D这些序号，带`ans`为该选项为正确答案。
+`label`是控制选择的序号，默认A,B,C,D这些序号，带`ans`为该选项为正确答案。`shouqi`为该解析默认收起。
 
 ## 填空
 ```html

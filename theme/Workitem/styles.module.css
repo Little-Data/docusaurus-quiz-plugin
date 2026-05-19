@@ -102,21 +102,65 @@
 
 .jiexi {
   margin-top: 1.2rem;
-  padding: 1rem;
   background: var(--ifm-color-info-lightest);
   border-left: 4px solid var(--ifm-color-info);
   border-radius: 0 var(--ifm-card-border-radius) var(--ifm-card-border-radius) 0;
+  overflow: hidden;
 }
 
 .jiexiTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
   color: var(--ifm-color-info-dark);
+  background: var(--ifm-color-info-lightest);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.jiexiTitle:hover {
+  background: var(--ifm-color-info-lighter);
+}
+
+.jiexiToggle {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  font-size: 0.8rem;
+  width: 1.2rem;
+  text-align: center;
+}
+
+.jiexiToggle.expanded {
+  transform: rotate(90deg);
 }
 
 .jiexiContent {
+  padding: 0.75rem 1rem 1rem 2rem;
   line-height: 1.6;
-  color: black;
+  color: var(--ifm-font-color-base);
+  border-top: 1px solid var(--ifm-color-info-lighter);
+}
+
+[data-theme='dark'] .jiexi {
+  background: var(--ifm-color-info-darkest);
+  border-left-color: var(--ifm-color-info-light);
+}
+
+[data-theme='dark'] .jiexiTitle {
+  color: var(--ifm-color-info-lightest);
+  background: var(--ifm-color-info-darkest);
+}
+
+[data-theme='dark'] .jiexiTitle:hover {
+  background: var(--ifm-color-info-dark);
+}
+
+[data-theme='dark'] .jiexiContent {
+  color: var(--ifm-color-info-lightest);
+  border-top-color: var(--ifm-color-info-dark);
 }
 
 .fillArea {
@@ -220,4 +264,9 @@
 
 .submitRow .redoCount {
   margin-right: auto;
+}
+
+.jiexiContentWrapper {
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
 }
