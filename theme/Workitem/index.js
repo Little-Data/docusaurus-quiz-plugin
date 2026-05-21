@@ -169,20 +169,52 @@ function SelectionQuestion({ question, options, jiexiContent, jiexiShouqi }) {
               optionClass += ` ${styles.selected}`;
             }
           }
+
+          const isInsideCodeBlock = (element) => {
+            // 匹配 pre 标签，以及代码块内常见的交互按钮（复制、自动换行等）
+            return element.closest('pre, button, [class*="codeBlock"], [class*="copyButton"], [class*="wrapButton"]');
+          };
+
+          const handleOptionClick = (e, idx) => {
+            // 如果点击发生在代码块内部，让代码块自身的按钮处理，不触发选项切换
+            if (isInsideCodeBlock(e.target)) return;
+            if (locked) return;
+            if (isMultiple) {
+              handleMultipleClick(idx);
+            } else {
+              handleSingleClick(idx);
+            }
+          };
+
+          const handleOptionKeyDown = (e, idx) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              // 键盘事件时，检查当前活动元素是否在代码块内
+              if (isInsideCodeBlock(document.activeElement)) return;
+              e.preventDefault();
+              if (locked) return;
+              if (isMultiple) {
+                handleMultipleClick(idx);
+              } else {
+                handleSingleClick(idx);
+              }
+            }
+          };
+
           return (
-            <button
+            <div
               key={idx}
               className={optionClass}
-              onClick={() =>
-                isMultiple ? handleMultipleClick(idx) : handleSingleClick(idx)
-              }
-              disabled={locked}
+              role="button"
+              tabIndex={locked ? -1 : 0}
+              aria-disabled={locked}
+              onClick={(e) => handleOptionClick(e, idx)}
+              onKeyDown={(e) => handleOptionKeyDown(e, idx)}
             >
               <span className={styles.optionLabel}>
                 {opt.label || String.fromCharCode(65 + idx)}
               </span>
               <span className={styles.optionText}>{opt.text}</span>
-            </button>
+            </div>
           );
         })}
       </div>
