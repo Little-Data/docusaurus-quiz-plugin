@@ -1,10 +1,22 @@
-import React, { useState, useMemo, useCallback, useContext, useLayoutEffect, useReducer, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useContext, useLayoutEffect, useReducer, useRef, useEffect } from 'react';
 import Wenben from '@theme/Wenben';
 import Xuanxiang from '@theme/Xuanxiang';
 import Jiexi from '@theme/Jiexi';
 import Ansinput from '@theme/Ansinput';
 import { QuizContext } from '../QuizContext';
 import styles from './styles.module.css';
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
 // 解析区域组件（带动画）
 function JiexiSection({ jiexiContent, initialCollapsed, forceExpandAllState }) {
@@ -272,13 +284,239 @@ function fillReducer(state, action) {
   }
 }
 
-function FillQuestion({ question, hasAnsinput, jiexiContent, jiexiShouqi }) {
+function FillQuestion({ question, hasAnsinput, hasKaTeX, jiexiContent, jiexiShouqi }) {
   const { showAnsDirectly, showJiexiDirectly, forceExpandAllState } = useContext(QuizContext);
+
   const [state, dispatch] = useReducer(fillReducer, {
     userLocked: false,
     inputValue: '',
     redoCount: 0,
   });
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
+  const [submittedAnswerRaw, setSubmittedAnswerRaw] = useState('');
+  const [submittedDisplayMode, setSubmittedDisplayMode] = useState('rendered');
+
+  const previewContainerRef = useRef(null);
+  const answerContainerRef = useRef(null);
+  const pendingRenderRef = useRef(false);
+
+  const [errorExpanded, setErrorExpanded] = useState(true);
+  const errorContentRef = useRef(null);
+  const [errorHeight, setErrorHeight] = useState(0);
+
+  // 测量错误内容高度
+  useEffect(() => {
+    if (errorContentRef.current) {
+      setErrorHeight(errorContentRef.current.scrollHeight);
+    }
+  }, [previewError]);
+
+  const toggleErrorExpand = () => {
+    setErrorExpanded(!errorExpanded);
+  };
+
+  // 渲染混合内容
+  const renderMixedContent = useCallback((content, container, setErrorFn) => {
+    if (!container) return;
+    if (setErrorFn) setErrorFn(null);
+    
+    container.innerHTML = '';
+    if (!content.trim()) return;
+
+    const patterns = [
+      { regex: /```math\s*([\s\S]*?)\s*```/g, displayMode: true },
+      { regex: /\$\$([\s\S]+?)\$\$/g, displayMode: true },
+      { regex: /\$([^\$]+?)\$/g, displayMode: false }
+    ];
+
+    let matches = [];
+    for (const pattern of patterns) {
+      const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
+      let match;
+      while ((match = regex.exec(content)) !== null) {
+        matches.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          raw: match[0],
+          math: match[1],
+          displayMode: pattern.displayMode
+        });
+      }
+    }
+    matches.sort((a, b) => a.start - b.start);
+
+    let cursor = 0;
+    const fragments = [];
+    for (const match of matches) {
+      if (match.start < cursor) continue;
+      if (match.start > cursor) {
+        fragments.push({ type: 'text', content: content.substring(cursor, match.start) });
+      }
+      fragments.push({ type: 'math', content: match.math, displayMode: match.displayMode });
+      cursor = match.end;
+    }
+    if (cursor < content.length) {
+      fragments.push({ type: 'text', content: content.substring(cursor) });
+    }
+
+    // 收集错误消息
+    const errorMessages = [];
+    
+    for (const frag of fragments) {
+      if (frag.type === 'text') {
+        const span = document.createElement('span');
+        span.style.whiteSpace = 'pre-wrap';
+        span.innerText = frag.content;
+        container.appendChild(span);
+      } else {
+        try {
+          const elem = document.createElement('span');
+          if (frag.displayMode) {
+            elem.style.display = 'block';
+            elem.style.textAlign = 'center';
+            elem.style.margin = '0.5em 0';
+          }
+          if (window.katex) {
+            window.katex.render(frag.content, elem, {
+              throwOnError: true,
+              displayMode: frag.displayMode,
+              output: 'html',
+              strict: false,
+              trust: true
+            });
+          } else {
+            throw new Error('KaTeX not loaded');
+          }
+          container.appendChild(elem);
+        } catch (err) {
+          // 收集错误信息，不中断渲染
+          errorMessages.push(`公式「${frag.content}」渲染失败: ${err.message}`);
+          // 显示原始文本作为降级
+          const errSpan = document.createElement('span');
+          errSpan.style.color = 'var(--ifm-color-danger)';
+          errSpan.style.backgroundColor = 'var(--ifm-color-danger-lightest)';
+          errSpan.style.padding = '0.2em 0.4em';
+          errSpan.style.borderRadius = '4px';
+          errSpan.style.fontFamily = 'monospace';
+          errSpan.innerText = frag.content;
+          container.appendChild(errSpan);
+        }
+      }
+    }
+    
+    // 统一设置错误信息
+    if (errorMessages.length > 0) {
+      if (setErrorFn) setErrorFn(errorMessages.join(' | '));
+    } else {
+      if (setErrorFn) setErrorFn(null);
+    }
+  }, []);
+
+  const openOrRefreshPreview = useCallback(() => {
+    if (!hasKaTeX || !hasAnsinput) return;
+    const currentContent = state.inputValue.trim();
+    if (!currentContent) return;
+    if (!previewOpen) {
+      setPreviewOpen(true);
+      setTimeout(() => {
+        if (previewContainerRef.current && currentContent) {
+          renderMixedContent(currentContent, previewContainerRef.current, setPreviewError);
+        }
+      }, 0);
+    } else {
+      if (previewContainerRef.current && currentContent) {
+        renderMixedContent(currentContent, previewContainerRef.current, setPreviewError);
+      }
+    }
+  }, [previewOpen, hasKaTeX, hasAnsinput, state.inputValue, renderMixedContent]);
+
+  const closePreview = useCallback(() => {
+    setPreviewOpen(false);
+    setPreviewError(null);
+    if (previewContainerRef.current) previewContainerRef.current.innerHTML = '';
+  }, []);
+
+  const debouncedRenderPreview = useMemo(
+    () => debounce((content) => {
+      if (previewOpen && previewContainerRef.current) {
+        renderMixedContent(content, previewContainerRef.current, setPreviewError);
+      }
+    }, 500),
+    [previewOpen, renderMixedContent]
+  );
+
+  const locked = showAnsDirectly || state.userLocked;
+  const showJiexi = showAnsDirectly || showJiexiDirectly || state.userLocked;
+  const isKaTeXMode = hasKaTeX && hasAnsinput;
+  const hasContent = state.inputValue.trim().length > 0;
+  const initialCollapsed = useMemo(() => {
+    if (jiexiShouqi !== undefined) return jiexiShouqi;
+    return false;
+  }, [jiexiShouqi]);
+  const showReset = !showAnsDirectly && state.userLocked;
+
+  const handleInputChange = useCallback((e) => {
+    if (locked) return;
+    const newValue = e.target.value;
+    dispatch({ type: 'SET_INPUT', payload: newValue });
+    if (previewOpen) {
+      // 新输入时先清除之前的错误
+      setPreviewError(null);
+      debouncedRenderPreview(newValue);
+    }
+  }, [locked, previewOpen, debouncedRenderPreview]);
+
+  const handleSubmit = useCallback(() => {
+    if (!hasContent) return;
+    setSubmittedAnswerRaw(state.inputValue);
+    setSubmittedDisplayMode('rendered');
+    dispatch({ type: 'SUBMIT' });
+    setPreviewOpen(false);
+    pendingRenderRef.current = true;
+  }, [state.inputValue, hasContent]);
+
+  const handleReset = useCallback(() => {
+    dispatch({ type: 'RESET' });
+    setPreviewOpen(false);
+    setPreviewError(null);
+    setSubmittedAnswerRaw('');
+    setSubmittedDisplayMode('rendered');
+    if (previewContainerRef.current) previewContainerRef.current.innerHTML = '';
+    pendingRenderRef.current = false;
+  }, []);
+
+  const toggleDisplayMode = useCallback(() => {
+    setSubmittedDisplayMode(prev => {
+      const newMode = prev === 'rendered' ? 'raw' : 'rendered';
+      return newMode;
+    });
+    pendingRenderRef.current = true;
+  }, []);
+
+  const setAnswerRef = useCallback((node) => {
+    answerContainerRef.current = node;
+    if (node && pendingRenderRef.current && state.userLocked && submittedAnswerRaw) {
+      if (isKaTeXMode && submittedDisplayMode === 'rendered') {
+        // KaTeX 模式且需要渲染公式
+        renderMixedContent(submittedAnswerRaw, node, () => {});
+      } else {
+        // 非 KaTeX 模式，或 KaTeX 模式但选择了“显示原文”：纯文本显示
+        node.innerHTML = '';
+        const pre = document.createElement('pre');
+        pre.style.whiteSpace = 'pre-wrap';
+        pre.style.margin = '0';
+        pre.style.fontFamily = 'inherit';
+        pre.style.padding = '0.5rem';
+        pre.style.background = 'var(--ifm-color-emphasis-100)';
+        pre.style.borderRadius = 'var(--ifm-card-border-radius)';
+        pre.innerText = submittedAnswerRaw;
+        node.appendChild(pre);
+      }
+      pendingRenderRef.current = false;
+    }
+  }, [state.userLocked, submittedAnswerRaw, submittedDisplayMode, isKaTeXMode, renderMixedContent]);
 
   useLayoutEffect(() => {
     if (showAnsDirectly) {
@@ -288,68 +526,100 @@ function FillQuestion({ question, hasAnsinput, jiexiContent, jiexiShouqi }) {
     }
   }, [showAnsDirectly]);
 
-  const locked = showAnsDirectly || state.userLocked;
-  const showJiexi = showAnsDirectly || showJiexiDirectly || state.userLocked;
-
-  const initialCollapsed = useMemo(() => {
-    if (jiexiShouqi !== undefined) return jiexiShouqi;
-    return false;
-  }, [jiexiShouqi]);
-
-  const handleInputChange = useCallback((e) => {
-    if (locked) return;
-    dispatch({ type: 'SET_INPUT', payload: e.target.value });
-  }, [locked]);
-
-  const handleSubmit = useCallback(() => {
-    if (state.inputValue.trim().length === 0) return;
-    dispatch({ type: 'SUBMIT' });
-  }, [state.inputValue]);
-
-  const handleReset = useCallback(() => {
-    dispatch({ type: 'RESET' });
-  }, []);
-
-  const showReset = !showAnsDirectly && state.userLocked;
-  const hasContent = state.inputValue.trim().length > 0;
+  if (!locked) {
+    return (
+      <div className={styles.item}>
+        <div className={styles.question}>{question}</div>
+        {hasAnsinput && (
+          <div className={styles.fillArea}>
+            <textarea
+              className={styles.textarea}
+              rows={4}
+              placeholder={isKaTeXMode ?
+                "请输入你的答案... 支持KaTeX数学公式代码" :
+                "请输入你的答案..."}
+              value={state.inputValue}
+              onChange={handleInputChange}
+            />
+            {isKaTeXMode && previewOpen && (
+              <div className={styles.previewArea}>
+                <div className={styles.previewHeader}>
+                  <span className={styles.previewTitle}>渲染效果</span>
+                  <button className={styles.closePreviewBtn} onClick={closePreview} aria-label="关闭预览" title="关闭预览">×</button>
+                </div>
+                <div className={styles.previewContent} ref={previewContainerRef} />
+                  {previewError && (
+                    <div className={styles.previewErrorWrapper}>
+                      <div className={styles.previewErrorHeader} onClick={toggleErrorExpand}>
+                        <span className={`${styles.previewErrorArrow} ${errorExpanded ? styles.expanded : ''}`}>▶</span>
+                        <span className={styles.previewErrorTitle}>渲染错误详情</span>
+                      </div>
+                      <div
+                        className={styles.previewErrorContentWrapper}
+                        style={{ maxHeight: errorExpanded ? `${errorHeight}px` : '0' }}
+                      >
+                        <div className={styles.previewErrorContent} ref={errorContentRef}>
+                          {previewError}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            )}
+          </div>
+        )}
+        <div className={styles.submitRow}>
+          {state.redoCount > 0 && <span className={styles.redoCount}>重做次数: {state.redoCount}</span>}
+          <div className={styles.buttonGroup}>
+            {isKaTeXMode && (
+              <button
+                className={`${previewOpen ? styles.refreshBtn : styles.previewBtn} ${!hasContent ? styles.hiddenBtn : ''}`}
+                onClick={openOrRefreshPreview}
+                disabled={!hasContent}
+                title={previewOpen ? "强制刷新预览" : "打开预览面板"}
+              >
+                {previewOpen ? "刷新" : "预览"}
+              </button>
+            )}
+            <button
+              className={`${styles.submitBtn} ${!hasContent ? styles.hiddenBtn : ''}`}
+              onClick={handleSubmit}
+              disabled={!hasContent}
+            >
+              确定
+            </button>
+          </div>
+        </div>
+        {showJiexi && jiexiContent && (
+          <JiexiSection
+            jiexiContent={jiexiContent}
+            initialCollapsed={initialCollapsed}
+            forceExpandAllState={forceExpandAllState}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={styles.item}>
       <div className={styles.question}>{question}</div>
-      {hasAnsinput && !showAnsDirectly && (
-        <div className={styles.fillArea}>
-          <textarea
-            className={styles.textarea}
-            rows={4}
-            placeholder="请输入你的答案..."
-            readOnly={locked}
-            value={state.inputValue}
-            onChange={handleInputChange}
-          />
+      {state.userLocked && !showAnsDirectly && hasAnsinput && (
+        <div className={styles.submittedAnswerContainer}>
+          <div className={styles.submittedAnswerHeader}>
+            <span className={styles.submittedAnswerTitle}>你的答案</span>
+            {isKaTeXMode && (
+              <button className={styles.toggleRenderBtn} onClick={toggleDisplayMode}>
+                {submittedDisplayMode === 'rendered' ? '显示原文' : '显示渲染'}
+              </button>
+            )}
+          </div>
+          <div className={styles.submittedAnswerContent} ref={setAnswerRef} />
         </div>
       )}
-
-      {!locked && hasAnsinput && !showAnsDirectly && (
-        <div className={styles.submitRow}>
-          {state.redoCount > 0 && <span className={styles.redoCount}>重做次数: {state.redoCount}</span>}
-          <button
-            className={`${styles.submitBtn} ${!hasContent ? styles.hiddenBtn : ''}`}
-            onClick={handleSubmit}
-            disabled={!hasContent}
-          >
-            确定
-          </button>
-        </div>
-      )}
-
       <div className={styles.actionBar}>
-        {showReset && (
-          <button className={styles.resetBtn} onClick={handleReset}>
-            重置
-          </button>
-        )}
+        {showReset && <button className={styles.resetBtn} onClick={handleReset}>重置</button>}
       </div>
-
       {showJiexi && jiexiContent && (
         <JiexiSection
           jiexiContent={jiexiContent}
@@ -362,7 +632,7 @@ function FillQuestion({ question, hasAnsinput, jiexiContent, jiexiShouqi }) {
 }
 
 export default function Workitem({ children, xuanze, tiankong, ...rest }) {
-  const { wenbenContent, options, jiexiContent, jiexiShouqi, hasAnsinput } = useMemo(() => {
+  const { wenbenContent, options, jiexiContent, jiexiShouqi, hasAnsinput, hasKaTeX } = useMemo(() => {
     const items = React.Children.toArray(children);
     const wenben = items.find(child => child.type === Wenben);
     const opts = items.filter(child => child.type === Xuanxiang);
@@ -379,6 +649,7 @@ export default function Workitem({ children, xuanze, tiankong, ...rest }) {
       jiexiContent: jiexi ? jiexi.props.children : null,
       jiexiShouqi: jiexi ? jiexi.props.shouqi === 'true' || jiexi.props.shouqi === true : undefined,
       hasAnsinput: !!ansinput,
+      hasKaTeX: ansinput?.props?.katex === true,
     };
   }, [children]);
 
@@ -401,6 +672,7 @@ export default function Workitem({ children, xuanze, tiankong, ...rest }) {
       <FillQuestion
         question={wenbenContent}
         hasAnsinput={hasAnsinput}
+        hasKaTeX={hasKaTeX}
         jiexiContent={jiexiContent}
         jiexiShouqi={jiexiShouqi}
       />

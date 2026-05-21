@@ -2,6 +2,8 @@
 
 <img width="1002" height="966" alt="屏幕截图 2026-05-17 222202" src="https://github.com/user-attachments/assets/af6b30f6-ebac-4afc-81c4-fe02accfd61b" />
 
+**图片不是最新的，请到网站看看效果**
+
 # 看看效果
 [在 Docusaurus 页面中添加测验](https://little-data.eu.org/add_the_exam_in_docusaurus)
 
@@ -24,6 +26,85 @@ plugins: [
   './plugins/quiz-plugin',    // 仅需添加此行，其余不变
 ],
 ```
+
+此外本插件需要 KaTeX 来渲染数学公式
+
+添加数学公式支持：
+
+```shell
+npm install --save remark-math@6 rehype-katex@7
+```
+
+修改`docusaurus.config.js`文件：
+
+```js 
+// @ts-check
+// `@type` JSDoc annotations allow editor autocompletion and type checking
+// (when paired with `@ts-check`).
+// There are various equivalent ways to declare your Docusaurus config.
+// See: https://docusaurus.io/docs/api/docusaurus-config
+
+import {themes as prismThemes} from 'prism-react-renderer';
+import remarkMath from 'remark-math';    // 添加此行
+import rehypeKatex from 'rehype-katex';  // 添加此行
+
+
+//............
+
+  presets: [
+    [
+      'classic',
+      /** @type {import('@docusaurus/preset-classic').Options} */
+      ({
+        docs: {
+          // 其余部分....
+          remarkPlugins: [remarkMath],  // 添加此行
+          rehypePlugins: [rehypeKatex], // 添加此行
+        },
+        blog: {
+          // 其余部分....
+          remarkPlugins: [remarkMath],  // 添加此行
+          rehypePlugins: [rehypeKatex], // 添加此行
+        },
+        theme: {
+          customCss: './src/css/custom.css',
+        },
+      }),
+    ],
+  ],
+
+// 新增下面内容
+  scripts: [
+    {
+      src: '/katex/katex.min.js',
+      defer: true,  // 确保在 DOM 加载后执行，不阻塞页面渲染
+    },
+  ],
+
+  stylesheets: [
+    {
+      href: '/katex/katex.min.css',
+      type: 'text/css',
+    },
+  ],
+
+// 以下不变
+  themeConfig:
+    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+    ({
+      // Replace with your project's social card
+      image: 'img/ico.jpg',
+      colorMode: {
+        respectPrefersColorScheme: true,
+      },
+  // ........................
+```
+
+进入到 [katex](https://github.com/KaTeX/KaTeX/releases) 的 Github 选最新版本下载 zip 文件。
+
+进入到项目的`static`文件夹，新建`katex`文件夹。
+
+打开下载的压缩包，选择`fonts`文件夹、`katex.min.css`、`katex.min.js` 文件解压到`katex`文件夹。
 
 # 使用
 
@@ -69,6 +150,8 @@ plugins: [
   </Workitem>
 </Workpaper>
 ```
+
+`<Ansinput />`带`katex`属性即`<Ansinput katex />`即可使用 katex 公式。
 
 ## 答题设置
 
