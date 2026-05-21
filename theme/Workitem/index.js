@@ -536,7 +536,7 @@ function FillQuestion({ question, hasAnsinput, hasKaTeX, jiexiContent, jiexiShou
               className={styles.textarea}
               rows={4}
               placeholder={isKaTeXMode ?
-                "请输入你的答案... 支持KaTeX数学公式代码" :
+                "请输入你的答案... 支持 KaTeX 数学公式代码" :
                 "请输入你的答案..."}
               value={state.inputValue}
               onChange={handleInputChange}
