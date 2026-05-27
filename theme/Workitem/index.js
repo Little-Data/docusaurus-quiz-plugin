@@ -23,6 +23,7 @@ function JiexiSection({ jiexiContent, initialCollapsed, forceExpandAllState }) {
   const [isExpanded, setIsExpanded] = useState(!initialCollapsed);
   const [height, setHeight] = useState(0);
   const contentRef = useRef(null);
+  const resizeObserverRef = useRef(null);
 
   useLayoutEffect(() => {
     if (forceExpandAllState !== null) {
@@ -30,12 +31,76 @@ function JiexiSection({ jiexiContent, initialCollapsed, forceExpandAllState }) {
     }
   }, [forceExpandAllState]);
 
-  // 当内容或展开状态变化时，重新计算高度
-  useLayoutEffect(() => {
-    if (contentRef.current) {
+  // 计算高度的函数
+  const updateHeight = useCallback(() => {
+    if (contentRef.current && isExpanded) {
+      setHeight(contentRef.current.scrollHeight);
+    } else if (contentRef.current && !isExpanded) {
+      // 收起时也需要存储完整高度，以便展开动画
       setHeight(contentRef.current.scrollHeight);
     }
-  }, [jiexiContent, isExpanded]);
+  }, [isExpanded]);
+
+  // 监听内容变化和图片加载
+  useLayoutEffect(() => {
+    if (!contentRef.current) return;
+
+    updateHeight();
+
+    // 使用 ResizeObserver 监听内容区域的大小变化
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserverRef.current = new ResizeObserver(() => {
+        updateHeight();
+      });
+      resizeObserverRef.current.observe(contentRef.current);
+    }
+
+    // 查找所有图片，监听图片加载完成事件
+    const images = contentRef.current.querySelectorAll('img');
+    const handleImageLoad = () => {
+      updateHeight();
+    };
+    
+    images.forEach(img => {
+      if (img.complete) {
+        // 图片已缓存，直接更新高度
+        updateHeight();
+      } else {
+        img.addEventListener('load', handleImageLoad);
+      }
+    });
+
+    // 监听字体加载（如果有自定义字体）
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        updateHeight();
+      });
+    }
+
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      images.forEach(img => {
+        img.removeEventListener('load', handleImageLoad);
+      });
+    };
+  }, [jiexiContent, updateHeight]);
+
+  // 当展开状态变化时，重新计算高度
+  useLayoutEffect(() => {
+    if (isExpanded) {
+      // 使用 requestAnimationFrame 确保 DOM 已更新
+      requestAnimationFrame(() => {
+        updateHeight();
+        // 额外延迟一次，处理异步内容
+        setTimeout(updateHeight, 50);
+      });
+    } else {
+      // 收起时也要存储高度，确保收起动画正确
+      updateHeight();
+    }
+  }, [isExpanded, updateHeight]);
 
   const handleTitleClick = () => {
     setIsExpanded(prev => !prev);
@@ -536,7 +601,7 @@ function FillQuestion({ question, hasAnsinput, hasKaTeX, jiexiContent, jiexiShou
               className={styles.textarea}
               rows={4}
               placeholder={isKaTeXMode ?
-                "请输入你的答案... 支持 KaTeX 数学公式代码" :
+                "请输入你的答案... 兼容 LaTeX 数学公式代码" :
                 "请输入你的答案..."}
               value={state.inputValue}
               onChange={handleInputChange}
