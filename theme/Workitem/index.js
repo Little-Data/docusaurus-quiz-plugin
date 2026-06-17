@@ -253,6 +253,8 @@ function SelectionQuestion({ question, options, jiexiContent, jiexiShouqi }) {
           };
 
           const handleOptionClick = (e, idx) => {
+            // 点击图片时不触发选项切换
+            if (e.target.tagName === 'IMG') return;
             // 如果点击发生在代码块内部，让代码块自身的按钮处理，不触发选项切换
             if (isInsideCodeBlock(e.target)) return;
             if (locked) return;
@@ -267,6 +269,7 @@ function SelectionQuestion({ question, options, jiexiContent, jiexiShouqi }) {
             if (e.key === 'Enter' || e.key === ' ') {
               // 键盘事件时，检查当前活动元素是否在代码块内
               if (isInsideCodeBlock(document.activeElement)) return;
+              if (document.activeElement?.tagName === 'IMG') return;
               e.preventDefault();
               if (locked) return;
               if (isMultiple) {
